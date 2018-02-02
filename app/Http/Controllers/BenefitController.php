@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Benefit;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\Validator;
 
 class BenefitController extends Controller
 {
@@ -27,7 +28,14 @@ class BenefitController extends Controller
     public function store(Request $request)
     {
         if($request->hasFile('excel')) {
-
+            $validator = Validator::make($request->all(), [
+                'excel' => 'required|mimes:xlsx,csv'
+            ]);
+            if ($validator->fails()) {
+                return response()->json([
+                    'message' => 'Error de validação do arquivo.'
+                ], 422);
+            }
             $path = $request->file('excel')->getRealPath();
     
             $data = Excel::load($path, function($reader) {})->get();
@@ -36,8 +44,13 @@ class BenefitController extends Controller
                 foreach ($data->toArray() as $key => $value) {
                     if(!empty($value)){
                         unset($value['0']);
-                            // print_r($value)  ;exit;
-                        Benefit::insert($value);
+                        try {
+                            Benefit::insert($value);
+                        } catch (\Exception $e) {
+                            return response()->json([
+                                'message' => $e->message()
+                            ], 500);
+                        }   
                     }
     
                 }
